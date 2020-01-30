@@ -4,10 +4,9 @@ import PubSub from '@aws-amplify/pubsub';
 import awsconfig from './aws-exports';
 import './App.css';
 
-import { createTodo } from './graphql/mutations';
-import { deleteTodo } from './graphql/mutations';
+import { createTodo, updateTodo, deleteTodo } from './graphql/mutations';
 import { listTodos } from './graphql/queries';
-import { onCreateTodo } from './graphql/subscriptions';
+import { onCreateTodo, onUpdateTodo, onDeleteTodo } from './graphql/subscriptions';
 
 API.configure(awsconfig);
 PubSub.configure(awsconfig);
@@ -57,13 +56,16 @@ const App = () => {
     }
     getData();
     // 新規タスクを検知してリストに追加
-    const subscription = API.graphql(graphqlOperation(onCreateTodo)).subscribe({
+    const insertSubscription = API.graphql(graphqlOperation(onCreateTodo)).subscribe({
       next: (eventData) => {
         const todo = eventData.value.data.onCreateTodo;
         dispatch({ type: SUBSCRIPTION, todo });
       }
     });
-    return () => subscription.unsubscribe();
+    const deleteSubscription = API.graphql(graphqlOperation(onDeleteTodo)).subscribe({
+      next: eventData => console.log(eventData),
+    });
+    return () => insertSubscription.unsubscribe();
   }, [])
 
   return (
