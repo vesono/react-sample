@@ -5,6 +5,7 @@ import awsconfig from './aws-exports';
 import './App.css';
 
 import { createTodo } from './graphql/mutations';
+import { deleteTodo } from './graphql/mutations';
 import { listTodos } from './graphql/queries';
 import { onCreateTodo } from './graphql/subscriptions';
 
@@ -12,44 +13,50 @@ API.configure(awsconfig);
 PubSub.configure(awsconfig);
 
 // アクションタイプ
-const QUERY = 'QUERY';
+const LIST = 'LIST';
 const SUBSCRIPTION = 'SUBSCRIPTION';
 
 const initialState = {
   todos: [],
 };
 
-// 新規タスク作成
-async function createNewTodo() {
-  const todo = { name: "Use AWS AppSync" , description: "Realtime and Offline" };
-  await API.graphql(graphqlOperation(createTodo, { input: todo }));
-}
-
 // reducer定義
 const reducer = (state, action) => {
   switch (action.type) {
-    case QUERY:
+    case LIST:
       return {...state, todos: action.todos};
       case SUBSCRIPTION:
-        console.log({...state, todos:[...state.todos, action.todo]});
         return {...state, todos:[...state.todos, action.todo]};
     default:
       return state;
   }
 };
 
+// 新規タスク作成
+const createNewTodo = async () => {
+  const todo = { name: "Use AWS AppSync" , description: "Realtime and Offline" };
+  await API.graphql(graphqlOperation(createTodo, { input: todo }));
+}
+
+// タスクの削除
+const delTodo = async delid => {
+  const deleteId = { id: delid };
+  await API.graphql(graphqlOperation(deleteTodo, {input: deleteId}));
+}
+
 // main処理
-function App() {
+const App = () => {
   const [state, dispatch] = useReducer(reducer, initialState);
 
   useEffect(() => {
     // タスク一覧を取得（初めに動く）
-    async function getData() {
+    const getData = async () => {
       const todoData = await API.graphql(graphqlOperation(listTodos));
-      dispatch({ type: QUERY, todos: todoData.data.listTodos.items });
+      console.log(todoData);
+      dispatch({ type: LIST, todos: todoData.data.listTodos.items });
     }
     getData();
-    // 変更を検知して、再取得を実施する
+    // 新規タスクを検知してリストに追加
     const subscription = API.graphql(graphqlOperation(onCreateTodo)).subscribe({
       next: (eventData) => {
         const todo = eventData.value.data.onCreateTodo;
@@ -67,9 +74,12 @@ function App() {
     <div>
       {state.todos.length > 0 ? 
         state.todos.map(todo => (
-          <p key={todo.id}>
-            {todo.name} : {todo.description}
-          </p>
+          <div>
+            <button onClick={() => delTodo(todo.id)}>delete</button>
+            <p key={todo.id}>
+              {todo.name} : {todo.description}
+            </p>
+          </div>
         )) :
           <p>Add some todos!</p> 
       }
