@@ -13,7 +13,7 @@ PubSub.configure(awsconfig);
 
 // アクションタイプ
 const LIST = 'LIST';
-const SUBSCRIPTION = 'SUBSCRIPTION';
+const ADD = 'ADD';
 
 const initialState = {
   todos: [],
@@ -24,7 +24,7 @@ const reducer = (state, action) => {
   switch (action.type) {
     case LIST:
       return {...state, todos: action.todos};
-      case SUBSCRIPTION:
+      case ADD:
         return {...state, todos:[...state.todos, action.todo]};
     default:
       return state;
@@ -51,21 +51,26 @@ const App = () => {
     // タスク一覧を取得（初めに動く）
     const getData = async () => {
       const todoData = await API.graphql(graphqlOperation(listTodos));
-      console.log(todoData);
+      // console.log(todoData);
       dispatch({ type: LIST, todos: todoData.data.listTodos.items });
     }
     getData();
     // 新規タスクを検知してリストに追加
     const insertSubscription = API.graphql(graphqlOperation(onCreateTodo)).subscribe({
       next: (eventData) => {
+        // console.log(eventData);
         const todo = eventData.value.data.onCreateTodo;
-        dispatch({ type: SUBSCRIPTION, todo });
+        dispatch({ type: ADD, todo });
       }
     });
+    // 削除されたら一覧取得する(listから消すのとどっちがいいんだろ・・・)
     const deleteSubscription = API.graphql(graphqlOperation(onDeleteTodo)).subscribe({
-      next: eventData => console.log(eventData),
+      next: eventData => getData()
     });
-    return () => insertSubscription.unsubscribe();
+    return () => {
+      insertSubscription.unsubscribe();
+      deleteSubscription.unsubscribe();
+    }
   }, [])
 
   return (
