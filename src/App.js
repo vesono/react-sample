@@ -1,12 +1,12 @@
-import React, { useEffect, useReducer } from 'react';
+import React, { useEffect, useReducer, useRef } from 'react';
 import API, { graphqlOperation } from '@aws-amplify/api';
 import PubSub from '@aws-amplify/pubsub';
 import awsconfig from './aws-exports';
-import './App.css';
-
-import { createTodo, updateTodo, deleteTodo } from './graphql/mutations';
+import { createTodo, deleteTodo } from './graphql/mutations';
 import { listTodos } from './graphql/queries';
 import { onCreateTodo, onUpdateTodo, onDeleteTodo } from './graphql/subscriptions';
+import './App.css';
+import { UpdApp } from './UpdateTodo';
 
 API.configure(awsconfig);
 PubSub.configure(awsconfig);
@@ -32,8 +32,8 @@ const reducer = (state, action) => {
 };
 
 // 新規タスク作成
-const createNewTodo = async () => {
-  const todo = { name: "Use AWS AppSync" , description: "Realtime and Offline" };
+const createNewTodo = async formTodo => {
+  const todo = { name: "Test name" , description: formTodo };
   await API.graphql(graphqlOperation(createTodo, { input: todo }));
 }
 
@@ -45,7 +45,15 @@ const delTodo = async delid => {
 
 // main処理
 const App = () => {
+  const inputRef = useRef();
   const [state, dispatch] = useReducer(reducer, initialState);
+
+  const handleSubmit = e => {
+    console.log(inputRef);
+    e.preventDefault();
+    createNewTodo(inputRef.current.value);
+    inputRef.current.value = '';
+  }
 
   useEffect(() => {
     // タスク一覧を取得（初めに動く）
@@ -67,30 +75,40 @@ const App = () => {
     const deleteSubscription = API.graphql(graphqlOperation(onDeleteTodo)).subscribe({
       next: eventData => getData()
     });
+    // アプデも一覧を再取得
+    const updateSubscription = API.graphql(graphqlOperation(onUpdateTodo)).subscribe({
+      next: eventData => getData()
+    });
     return () => {
       insertSubscription.unsubscribe();
       deleteSubscription.unsubscribe();
+      updateSubscription.unsubscribe();
     }
   }, [])
 
   return (
+  <div>
     <div>
-    <div className="App">
-      <button onClick={createNewTodo}>Add Todo</button>
+      新規タスク<br />
+      <form>
+        <input type="text" ref={inputRef} onKeyPress={e => {if (e.key === 'Enter') e.preventDefault();}}/>
+        <input type="submit" value="追加" onClick={e => handleSubmit(e)}/>
+      </form>
     </div>
-    <div>
+    <ul>
       {state.todos.length > 0 ? 
         state.todos.map(todo => (
           <div>
-            <button onClick={() => delTodo(todo.id)}>delete</button>
-            <p key={todo.id}>
-              {todo.name} : {todo.description}
-            </p>
+            <li key={todo.id}>
+              {todo.description}
+            </li>
+            <button onClick={() => UpdApp(todo.id)}>編集</button>
+            <button onClick={() => delTodo(todo.id)}>削除</button>
           </div>
         )) :
           <p>Add some todos!</p> 
       }
-    </div>
+    </ul>
   </div>
   );
 }
